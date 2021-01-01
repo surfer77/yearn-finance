@@ -2,10 +2,11 @@ import React, { useEffect } from 'react';
 import {
   selectContractsByTag,
   selectAllContracts,
-  selectTokenAllowance,
 } from 'containers/App/selectors';
-import { selectBorrowStats } from 'containers/Cream/selectors';
-import { COMPTROLLER_ADDRESS } from 'containers/Cream/constants';
+import {
+  selectBorrowStats,
+  selectCollateralEnabled,
+} from 'containers/Cream/selectors';
 import styled from 'styled-components';
 import { useInjectSaga } from 'utils/injectSaga';
 import TokenIcon from 'components/TokenIcon';
@@ -15,8 +16,13 @@ import { useModal } from 'containers/ModalProvider/hooks';
 import IconButton from 'components/IconButton';
 import { useSelector, useDispatch } from 'react-redux';
 import InfoCard from 'components/InfoCard';
-import { initializeCream } from './actions';
+import ButtonFilled from 'components/ButtonFilled';
 import saga from './saga';
+import { initializeCream, creamEnterMarkets, approveTxSpend } from './actions';
+// import { useAccount, useWeb3 } from 'containers/ConnectionProvider/hooks';
+// import { BigNumber } from 'bignumber.js';
+
+// const MAX_UINT256 = new BigNumber(2).pow(256).minus(1).toFixed(0);
 
 const Wrapper = styled.div`
   margin: 0 auto;
@@ -73,12 +79,14 @@ const percentTransform = (val) => `${val}%`;
 export default function Cream() {
   useInjectSaga({ key: 'cream', saga });
   const dispatch = useDispatch();
+  // const web3 = useWeb3();
+  // const account = useAccount();
 
   const initialize = () => {
     dispatch(initializeCream());
   };
   useEffect(initialize, []);
-
+  const selectCollateralEnabledData = useSelector(selectCollateralEnabled());
   const creamCTokens = useSelector(selectContractsByTag('creamCTokens'));
 
   const creamCTokenAddresses = _.map(creamCTokens, (token) =>
@@ -107,45 +115,14 @@ export default function Cream() {
 
   const suppliedData = _.filter(supplyDataSorted, (data) => data.supplied > 0);
 
-<<<<<<< HEAD
   const supplyRowClickHandler = (row) => {
-=======
-  const supplyRowClickHandler = row => {
-    console.log({ row });
     openModal('cream', row);
   };
 
-  const borrowRowClickHandler = row => {
+  const borrowRowClickHandler = (row) => {
     console.log({ row });
->>>>>>> feat: check allowance from comptroller for cream deposit tokens
     openModal('cream', row);
   };
-
-  // const boolTransform = val => (val ? 'yes' : 'no');
-
-  const CollateralToggle = props => {
-    const {
-      // enabled,
-      rowData,
-    } = props;
-    // console.log(rowData);
-    const tokenAddress = _.get(rowData, 'asset.address');
-    // NOTE - comptrollerAddress gets approval for token?
-    const compTrollerAllowance = useSelector(
-      selectTokenAllowance(tokenAddress, COMPTROLLER_ADDRESS),
-    );
-    return (
-      <input
-        type="checkbox"
-        checked={Boolean(compTrollerAllowance)}
-        onChange={() => {}}
-      />
-    );
-  };
-
-  const collateralTransform = (enabled, rowData) => (
-    <CollateralToggle enabled={enabled} rowData={rowData} />
-  );
 
   const borrowActionsTransform = (val, row) => {
     let withdrawButton;
@@ -160,22 +137,78 @@ export default function Cream() {
     );
   };
 
-  const allActionsTransform = (_rowValue, row) => (
-    <Buttons>
-      <IconButton
-        iconType="arrowUpAlt"
-        onClick={() => supplyRowClickHandler(row)}
-      >
-        Supply
-      </IconButton>
-      <IconButton
-        iconType="arrowDownAlt"
-        onClick={() => borrowRowClickHandler(row)}
-      >
-        Borrow
-      </IconButton>
-    </Buttons>
-  );
+  const approveToken = async (tokenContractAddress, creamCTokenAddress) => {
+    dispatch(approveTxSpend(tokenContractAddress, creamCTokenAddress));
+  };
+
+  const allActionsTransform = (_rowValue, rowData) => {
+    const creamCTokenAddress = _.get(rowData, 'creamCTokenAddress');
+    const token = _.get(rowData, 'asset');
+    const tokenContractAddress = _.get(token, 'address');
+    const allowances = _.get(token, 'allowance');
+    const tokenAllowanceObject = _.find(allowances, (allowance) =>
+      _.includes(allowance.args, creamCTokenAddress),
+    );
+    const tokenAllowance = _.get(tokenAllowanceObject, 'value');
+    const crTokenAllowedToSpendToken = tokenAllowance > 0;
+    const marketEntered = selectCollateralEnabledData.includes(
+      creamCTokenAddress,
+    );
+
+    let enableCollateral;
+
+    if (marketEntered) {
+      if (crTokenAllowedToSpendToken) {
+        enableCollateral = <div>Approved and Ready!</div>;
+      } else {
+        enableCollateral = (
+          <ButtonFilled
+            variant="contained"
+            color="primary"
+            onClick={() =>
+              approveToken(tokenContractAddress, creamCTokenAddress)
+            }
+          >
+            Approve Token
+          </ButtonFilled>
+        );
+      }
+    } else {
+      enableCollateral = (
+        <ButtonFilled
+          variant="contained"
+          color="primary"
+          onClick={() => {
+            if (marketEntered) {
+              // TODO: Exit Market, meh
+              return;
+            }
+            dispatch(creamEnterMarkets(creamCTokenAddress));
+          }}
+        >
+          Enter Market/Enable
+        </ButtonFilled>
+      );
+    }
+
+    return (
+      <Buttons>
+        <IconButton
+          iconType="arrowUpAlt"
+          onClick={() => supplyRowClickHandler(rowData)}
+        >
+          Supply
+        </IconButton>
+        <IconButton
+          iconType="arrowDownAlt"
+          onClick={() => borrowRowClickHandler(rowData)}
+        >
+          Borrow
+        </IconButton>
+        {enableCollateral}
+      </Buttons>
+    );
+  };
 
   const supplyActionsTransform = (val, row) => {
     let withdrawButton;
@@ -243,7 +276,6 @@ export default function Cream() {
 
   const allAssetsTable = {
     title: 'All Assets',
-    rowClickHandler: supplyRowClickHandler,
     columns: [
       { key: 'asset', transform: tokenTransform },
       {
@@ -262,10 +294,6 @@ export default function Cream() {
         key: 'actions',
         alias: '',
         transform: allActionsTransform,
-      },
-      {
-        key: 'collateral',
-        transform: collateralTransform,
       },
     ],
     rows: borrowDataSorted,
