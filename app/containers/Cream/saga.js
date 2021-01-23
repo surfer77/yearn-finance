@@ -3,14 +3,13 @@ import priceOracleAbi from 'abi/creamPriceOracle.json';
 import CErc20DelegatorAbi from 'abi/CErc20Delegator.json';
 import erc20Abi from 'abi/erc20.json';
 import { selectAccount } from 'containers/ConnectionProvider/selectors';
-import { selectReady, selectContractData } from 'containers/App/selectors';
+import { selectReady, selectTokenAllowance } from 'containers/App/selectors';
 import { APP_READY } from 'containers/App/constants';
 import {
   COMPTROLLER_ADDRESS,
   PRICE_ORACLE_ADDRESS,
   INITIALIZE_CREAM,
   CREAM_ENTER_MARKETS,
-  CREAM_APPROVE_TX,
 } from 'containers/Cream/constants';
 
 import { addContracts } from 'containers/DrizzleProvider/actions';
@@ -22,9 +21,10 @@ import {
   setContext,
   getContext,
 } from 'redux-saga/effects';
-import BigNumber from 'bignumber.js';
+import { approveTxSpend } from 'utils/contracts';
+import { selectCollateralEnabled } from './selectors';
 
-const MAX_UINT256 = new BigNumber(2).pow(256).minus(1).toFixed(0);
+// const MAX_UINT256 = new BigNumber(2).pow(256).minus(1).toFixed(0);
 
 function* subscribeToCreamData(action) {
   const initialized = yield getContext('initialized');
@@ -101,8 +101,6 @@ function* subscribeToCreamData(action) {
       namespace: 'creamComptroller',
       abi: comptrollerAbi,
       addresses: [COMPTROLLER_ADDRESS],
-      allWriteMethods: true,
-      allReadMethods: true,
       writeMethods: [
         {
           name: 'enterMarkets',
@@ -125,7 +123,11 @@ function* subscribeToCreamData(action) {
       tags: ['creamCTokens'],
       abi: CErc20DelegatorAbi,
       addresses: cTokenAddresses,
-      allWriteMethods: true,
+      writeMethods: [
+        {
+          name: 'approve',
+        },
+      ],
       readMethods: [
         { name: 'name' },
         { name: 'symbol' },
@@ -164,30 +166,41 @@ function* subscribeToCreamData(action) {
   yield put(addContracts(subscriptions));
 }
 
-function* executeEnterMarkets({ cTokenAddress }) {
+function* executeEnterMarkets({
+  tokenContract,
+  tokenContractAddress,
+  creamCTokenAddress,
+  creamComptrollerContract,
+}) {
   const account = yield select(selectAccount());
-  const creamComptrollerContract = yield select(
-    selectContractData(COMPTROLLER_ADDRESS),
+  const tokenAllowance = yield select(
+    selectTokenAllowance(tokenContractAddress, creamCTokenAddress),
   );
-  console.log(creamComptrollerContract);
-  console.log(cTokenAddress);
-  yield call(
-    creamComptrollerContract.methods.enterMarkets([cTokenAddress]).send,
-    { from: account },
+  const selectCollateralEnabledData = yield select(selectCollateralEnabled());
+  const marketEntered = selectCollateralEnabledData.includes(
+    creamCTokenAddress,
   );
-}
 
-function* approveTxSpend({ tokenContractAddress, spenderAddress }) {
-  const account = yield select(selectAccount());
-  const contract = yield select(selectContractData(tokenContractAddress));
-  yield call(contract.methods.approve.cacheSend, spenderAddress, MAX_UINT256, {
-    from: account,
-  });
+  const vaultAllowedToSpendToken = tokenAllowance > 0;
+
+  try {
+    if (!marketEntered) {
+      yield call(
+        creamComptrollerContract.methods.enterMarkets([creamCTokenAddress])
+          .send,
+        { from: account },
+      );
+    }
+    if (!vaultAllowedToSpendToken) {
+      yield call(approveTxSpend, tokenContract, account, creamCTokenAddress);
+    }
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 export default function* watchers() {
   yield takeLatest(APP_READY, subscribeToCreamData);
   yield takeLatest(INITIALIZE_CREAM, subscribeToCreamData);
-  yield takeLatest(CREAM_APPROVE_TX, approveTxSpend);
   yield takeLatest(CREAM_ENTER_MARKETS, executeEnterMarkets);
 }

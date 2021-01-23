@@ -17,8 +17,10 @@ import IconButton from 'components/IconButton';
 import { useSelector, useDispatch } from 'react-redux';
 import InfoCard from 'components/InfoCard';
 import ButtonFilled from 'components/ButtonFilled';
+import { useContract } from 'containers/DrizzleProvider/hooks';
+import { COMPTROLLER_ADDRESS } from 'containers/Cream/constants';
 import saga from './saga';
-import { initializeCream, creamEnterMarkets, approveTxSpend } from './actions';
+import { initializeCream, creamEnterMarkets } from './actions';
 // import { useAccount, useWeb3 } from 'containers/ConnectionProvider/hooks';
 // import { BigNumber } from 'bignumber.js';
 
@@ -88,6 +90,7 @@ export default function Cream() {
   useEffect(initialize, []);
   const selectCollateralEnabledData = useSelector(selectCollateralEnabled());
   const creamCTokens = useSelector(selectContractsByTag('creamCTokens'));
+  const creamComptrollerContract = useContract(COMPTROLLER_ADDRESS);
 
   const creamCTokenAddresses = _.map(creamCTokens, (token) =>
     _.get(token, 'address'),
@@ -115,6 +118,10 @@ export default function Cream() {
 
   const suppliedData = _.filter(supplyDataSorted, (data) => data.supplied > 0);
 
+  if (!borrowedData || !suppliedData) {
+    return null;
+  }
+
   const supplyRowClickHandler = (row) => {
     openModal('cream', row);
   };
@@ -137,10 +144,6 @@ export default function Cream() {
     );
   };
 
-  const approveToken = async (tokenContractAddress, creamCTokenAddress) => {
-    dispatch(approveTxSpend(tokenContractAddress, creamCTokenAddress));
-  };
-
   const allActionsTransform = (_rowValue, rowData) => {
     const creamCTokenAddress = _.get(rowData, 'creamCTokenAddress');
     const token = _.get(rowData, 'asset');
@@ -155,6 +158,9 @@ export default function Cream() {
       creamCTokenAddress,
     );
 
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const tokenContract = useContract(tokenContractAddress);
+
     let enableCollateral;
 
     if (marketEntered) {
@@ -166,7 +172,14 @@ export default function Cream() {
             variant="contained"
             color="primary"
             onClick={() =>
-              approveToken(tokenContractAddress, creamCTokenAddress)
+              dispatch(
+                creamEnterMarkets({
+                  tokenContract,
+                  tokenContractAddress,
+                  creamCTokenAddress,
+                  creamComptrollerContract,
+                }),
+              )
             }
           >
             Approve Token
@@ -183,7 +196,14 @@ export default function Cream() {
               // TODO: Exit Market, meh
               return;
             }
-            dispatch(creamEnterMarkets(creamCTokenAddress));
+            dispatch(
+              creamEnterMarkets({
+                tokenContract,
+                tokenContractAddress,
+                creamCTokenAddress,
+                creamComptrollerContract,
+              }),
+            );
           }}
         >
           Enter Market/Enable
@@ -298,8 +318,6 @@ export default function Cream() {
     ],
     rows: borrowDataSorted,
   };
-
-  console.log('borw', borrowDataSorted);
 
   const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
