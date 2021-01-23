@@ -9,7 +9,11 @@
 //   };
 // }
 
-import { CREAM_ENTER_MARKETS, INITIALIZE_CREAM } from './constants';
+import {
+  CREAM_ENTER_MARKETS,
+  INITIALIZE_CREAM,
+  CREAM_SUPPLY,
+} from './constants';
 
 export function initializeCream() {
   return {
@@ -29,5 +33,13 @@ export function creamEnterMarkets({
     tokenContractAddress,
     creamCTokenAddress,
     creamComptrollerContract,
+  };
+}
+
+export function creamSupply({ crTokenContract, amount }) {
+  return {
+    type: CREAM_SUPPLY,
+    crTokenContract,
+    amount,
   };
 }

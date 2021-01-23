@@ -3,8 +3,10 @@ import Modal from 'react-bootstrap/Modal';
 import styled from 'styled-components';
 import TabbedNavigation from 'components/TabbedNavigation';
 import BigNumber from 'bignumber.js';
-import { useAccount, useWeb3 } from 'containers/ConnectionProvider/hooks';
-import CErc20DelegatorAbi from 'abi/CErc20Delegator.json';
+import { useAccount } from 'containers/ConnectionProvider/hooks';
+import { useContract } from 'containers/DrizzleProvider/hooks';
+import { useDispatch } from 'react-redux';
+import { creamSupply } from 'containers/Cream/actions';
 const StyledButton = styled.button`
   width: 80px;
   height: 50px;
@@ -56,7 +58,8 @@ export default function CreamModal(props) {
   // };
 
   const account = useAccount();
-  const web3 = useWeb3();
+  // const web3 = useWeb3();
+  const dispatch = useDispatch();
   const amountRef = useRef({ current: {} });
   const amountRefNormalized = useRef(null);
   // const allowed = _.get(modalMetadata, 'allowed', false);
@@ -68,16 +71,13 @@ export default function CreamModal(props) {
   const balanceOfNormalized = new BigNumber(balanceOf)
     .dividedBy(10 ** decimals)
     .toFixed(4);
+  const crTokenContract = useContract(creamCTokenAddress);
 
   const supply = async () => {
     try {
-      const crTokenContract = new web3.eth.Contract(
-        CErc20DelegatorAbi,
-        creamCTokenAddress,
+      dispatch(
+        creamSupply({ crTokenContract, amount: amountRef.current.value }),
       );
-      await crTokenContract.methods
-        .mint(amountRef.current.value)
-        .send({ from: account });
     } catch (err) {
       console.error(err);
     }
@@ -85,10 +85,6 @@ export default function CreamModal(props) {
 
   const withdraw = async () => {
     try {
-      const crTokenContract = new web3.eth.Contract(
-        CErc20DelegatorAbi,
-        creamCTokenAddress,
-      );
       // NOTE - Is it redeem? Same function signature as mint tbf
       await crTokenContract.methods
         .redeem(amountRef.current.value)
@@ -111,7 +107,7 @@ export default function CreamModal(props) {
     amountRef.current.value = val;
     const normalizedAmount = new BigNumber(val)
       .dividedBy(10 ** decimals)
-      .toFixed(4);
+      .toFixed(5);
     amountRefNormalized.current.value = normalizedAmount;
   };
 

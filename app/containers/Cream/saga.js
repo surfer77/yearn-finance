@@ -10,6 +10,7 @@ import {
   PRICE_ORACLE_ADDRESS,
   INITIALIZE_CREAM,
   CREAM_ENTER_MARKETS,
+  CREAM_SUPPLY,
 } from 'containers/Cream/constants';
 
 import { addContracts } from 'containers/DrizzleProvider/actions';
@@ -166,6 +167,17 @@ function* subscribeToCreamData(action) {
   yield put(addContracts(subscriptions));
 }
 
+function* supply({ crTokenContract, amount }) {
+  const account = yield select(selectAccount());
+  try {
+    yield call(crTokenContract.methods.mint.cacheSend, amount, {
+      from: account,
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function* executeEnterMarkets({
   tokenContract,
   tokenContractAddress,
@@ -203,4 +215,5 @@ export default function* watchers() {
   yield takeLatest(APP_READY, subscribeToCreamData);
   yield takeLatest(INITIALIZE_CREAM, subscribeToCreamData);
   yield takeLatest(CREAM_ENTER_MARKETS, executeEnterMarkets);
+  yield takeLatest(CREAM_SUPPLY, supply);
 }

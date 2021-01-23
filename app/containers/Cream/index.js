@@ -88,6 +88,7 @@ export default function Cream() {
     dispatch(initializeCream());
   };
   useEffect(initialize, []);
+
   const selectCollateralEnabledData = useSelector(selectCollateralEnabled());
   const creamCTokens = useSelector(selectContractsByTag('creamCTokens'));
   const creamComptrollerContract = useContract(COMPTROLLER_ADDRESS);
