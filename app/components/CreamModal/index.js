@@ -3,10 +3,14 @@ import Modal from 'react-bootstrap/Modal';
 import styled from 'styled-components';
 import TabbedNavigation from 'components/TabbedNavigation';
 import BigNumber from 'bignumber.js';
-import { useAccount } from 'containers/ConnectionProvider/hooks';
 import { useContract } from 'containers/DrizzleProvider/hooks';
 import { useDispatch } from 'react-redux';
-import { creamSupply, creamBorrow } from 'containers/Cream/actions';
+import {
+  creamSupply,
+  creamBorrow,
+  creamRepay,
+  creamWithdraw,
+} from 'containers/Cream/actions';
 const StyledButton = styled.button`
   width: 80px;
   height: 50px;
@@ -53,25 +57,39 @@ const Button = (props) => {
 
 export default function CreamModal(props) {
   const { show, onHide, className, modalMetadata } = props;
-  // const enable = () => {
-  //   console.log('enable');
-  // };
-
-  const account = useAccount();
-  // const web3 = useWeb3();
   const dispatch = useDispatch();
   const amountRef = useRef({ current: {} });
   const amountRefNormalized = useRef(null);
-  // const allowed = _.get(modalMetadata, 'allowed', false);
+
   const symbol = _.get(modalMetadata, 'asset.symbol[0].value', false);
   const decimals = _.get(modalMetadata, 'asset.decimals[0].value', false);
   const balanceOf = _.get(modalMetadata, 'asset.balanceOf[0].value', false);
-  const suppliedNormalized = _.get(modalMetadata, 'supplied', false);
+  const supplied = _.get(modalMetadata, 'supplied', false);
+  const borrowed = _.get(modalMetadata, 'cTokenBalanceOf', false);
+  const cTokenDecimals = _.get(modalMetadata, 'cTokenDecimals', false);
+  const borrowLimit = _.get(modalMetadata, 'borrowLimit', false);
   const creamCTokenAddress = _.get(modalMetadata, 'creamCTokenAddress');
+
+  const crTokenContract = useContract(creamCTokenAddress);
+
+  const borrowAllowance = new BigNumber(borrowLimit).minus(
+    new BigNumber(borrowed),
+  );
+  const borrowAllowanceNormalized = borrowAllowance
+    .dividedBy(10 ** cTokenDecimals)
+    .toFixed(5);
+  const borrowedNormalized = new BigNumber(borrowed)
+    .dividedBy(10 ** cTokenDecimals)
+    .toFixed(5);
+  const suppliedNormalized = new BigNumber(supplied)
+    .dividedBy(10 ** decimals)
+    .toFixed(5);
   const balanceOfNormalized = new BigNumber(balanceOf)
     .dividedBy(10 ** decimals)
     .toFixed(4);
-  const crTokenContract = useContract(creamCTokenAddress);
+  if (!crTokenContract) {
+    return null;
+  }
 
   const supply = async () => {
     try {
@@ -93,12 +111,21 @@ export default function CreamModal(props) {
     }
   };
 
+  const repay = async () => {
+    try {
+      dispatch(
+        creamRepay({ crTokenContract, amount: amountRef.current.value }),
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const withdraw = async () => {
     try {
-      // NOTE - Is it redeem? Same function signature as mint tbf
-      await crTokenContract.methods
-        .redeem(amountRef.current.value)
-        .send({ from: account });
+      dispatch(
+        creamWithdraw({ crTokenContract, amount: amountRef.current.value }),
+      );
     } catch (err) {
       console.error(err);
     }
@@ -106,6 +133,18 @@ export default function CreamModal(props) {
 
   const setMax = () => {
     updateAmount(balanceOf);
+  };
+
+  const setMaxBorrow = () => {
+    updateAmount(borrowAllowance);
+  };
+
+  const setMaxRepay = () => {
+    updateAmount(borrowed);
+  };
+
+  const setMaxWithdraw = () => {
+    updateAmount(supplied);
   };
 
   const updateNormalizedAmount = (val) => {
@@ -149,17 +188,37 @@ export default function CreamModal(props) {
       <InputArea>
         <input
           ref={amountRefNormalized}
-          max={balanceOfNormalized}
+          max={borrowAllowance}
           type="number"
           onChange={(evt) => updateNormalizedAmount(evt.target.value)}
         />
-        <MaxButton onClick={setMax}>max</MaxButton>
+        <MaxButton onClick={setMaxBorrow}>max</MaxButton>
       </InputArea>
       <Button onClick={borrow}>Borrow</Button>
       <Bottom>
+        <div>Borrow allowance</div>
+        <div>
+          {borrowAllowanceNormalized} {symbol}
+        </div>
+      </Bottom>
+    </ColumnWrapper>
+  );
+
+  const RepayPage = () => (
+    <ColumnWrapper>
+      <InputArea>
+        <input
+          ref={amountRefNormalized}
+          max={borrowed}
+          onChange={(evt) => updateNormalizedAmount(evt.target.value)}
+        />
+        <MaxButton onClick={setMaxRepay}>max</MaxButton>
+      </InputArea>
+      <Button onClick={repay}>Repay</Button>
+      <Bottom>
         <div>Wallet balance</div>
         <div>
-          {balanceOfNormalized} {symbol}
+          {borrowedNormalized} {symbol}
         </div>
       </Bottom>
     </ColumnWrapper>
@@ -169,13 +228,15 @@ export default function CreamModal(props) {
     <ColumnWrapper>
       <InputArea>
         <input
+          max={supplied}
           ref={amountRefNormalized}
           onChange={(evt) => updateNormalizedAmount(evt.target.value)}
         />
+        <MaxButton onClick={setMaxWithdraw}>max</MaxButton>
       </InputArea>
       <Button onClick={withdraw}>Withdraw</Button>
       <Bottom>
-        <div>Wallet balance</div>
+        <div>Supplied balance</div>
         <div>
           {suppliedNormalized} {symbol}
         </div>
@@ -197,6 +258,10 @@ export default function CreamModal(props) {
     {
       name: 'Borrow',
       element: BorrowPage,
+    },
+    {
+      name: 'Repay',
+      element: RepayPage,
     },
     {
       name: 'Withdraw',

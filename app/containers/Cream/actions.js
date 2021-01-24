@@ -14,6 +14,8 @@ import {
   INITIALIZE_CREAM,
   CREAM_SUPPLY,
   CREAM_BORROW,
+  CREAM_REPAY,
+  CREAM_WITHDRAW,
 } from './constants';
 
 export function initializeCream() {
@@ -48,6 +50,22 @@ export function creamSupply({ crTokenContract, amount }) {
 export function creamBorrow({ crTokenContract, amount }) {
   return {
     type: CREAM_BORROW,
+    crTokenContract,
+    amount,
+  };
+}
+
+export function creamRepay({ crTokenContract, amount }) {
+  return {
+    type: CREAM_REPAY,
+    crTokenContract,
+    amount,
+  };
+}
+
+export function creamWithdraw({ crTokenContract, amount }) {
+  return {
+    type: CREAM_WITHDRAW,
     crTokenContract,
     amount,
   };

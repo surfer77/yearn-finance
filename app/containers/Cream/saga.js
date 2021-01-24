@@ -12,6 +12,8 @@ import {
   CREAM_ENTER_MARKETS,
   CREAM_SUPPLY,
   CREAM_BORROW,
+  CREAM_REPAY,
+  CREAM_WITHDRAW,
 } from 'containers/Cream/constants';
 
 import { addContracts } from 'containers/DrizzleProvider/actions';
@@ -107,6 +109,18 @@ function* subscribeToCreamData(action) {
         {
           name: 'enterMarkets',
         },
+        {
+          name: 'mint',
+        },
+        {
+          name: 'borrow',
+        },
+        {
+          name: 'repayBorrow',
+        },
+        {
+          name: 'redeem',
+        },
       ],
       readMethods: _.concat(
         [
@@ -190,6 +204,28 @@ function* borrow({ crTokenContract, amount }) {
   }
 }
 
+function* repay({ crTokenContract, amount }) {
+  const account = yield select(selectAccount());
+  try {
+    yield call(crTokenContract.methods.repayBorrow.cacheSend, amount, {
+      from: account,
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function* withdraw({ crTokenContract, amount }) {
+  const account = yield select(selectAccount());
+  try {
+    yield call(crTokenContract.methods.redeem.cacheSend, amount, {
+      from: account,
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function* executeEnterMarkets({
   tokenContract,
   tokenContractAddress,
@@ -229,4 +265,6 @@ export default function* watchers() {
   yield takeLatest(CREAM_ENTER_MARKETS, executeEnterMarkets);
   yield takeLatest(CREAM_SUPPLY, supply);
   yield takeLatest(CREAM_BORROW, borrow);
+  yield takeLatest(CREAM_REPAY, repay);
+  yield takeLatest(CREAM_WITHDRAW, withdraw);
 }
