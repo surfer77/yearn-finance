@@ -135,12 +135,24 @@ export default function Cream() {
   const borrowActionsTransform = (val, row) => {
     let withdrawButton;
     if (row.borrowed > 0) {
-      withdrawButton = <IconButton iconType="arrowUpAlt">Repay</IconButton>;
+      withdrawButton = (
+        <IconButton
+          iconType="arrowUpAlt"
+          onClick={() => borrowRowClickHandler(row)}
+        >
+          Repay
+        </IconButton>
+      );
     }
     return (
       <Buttons>
         {withdrawButton}
-        <IconButton iconType="arrowDownAlt">Borrow</IconButton>
+        <IconButton
+          iconType="arrowDownAlt"
+          onClick={() => borrowRowClickHandler(row)}
+        >
+          Borrow
+        </IconButton>
       </Buttons>
     );
   };
@@ -252,13 +264,23 @@ export default function Cream() {
     let withdrawButton;
     if (row.supplied > 0) {
       withdrawButton = (
-        <IconButton iconType="arrowDownAlt">Withdraw</IconButton>
+        <IconButton
+          iconType="arrowDownAlt"
+          onClick={() => borrowRowClickHandler(row)}
+        >
+          Withdraw
+        </IconButton>
       );
     }
     return (
       <Buttons>
         {withdrawButton}
-        <IconButton iconType="arrowUpAlt">Supply</IconButton>
+        <IconButton
+          iconType="arrowUpAlt"
+          onClick={() => borrowRowClickHandler(row)}
+        >
+          Supply
+        </IconButton>
       </Buttons>
     );
   };
