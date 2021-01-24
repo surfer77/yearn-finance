@@ -166,7 +166,8 @@ export default function Cream() {
 
     if (marketEntered) {
       if (crTokenAllowedToSpendToken) {
-        enableCollateral = <div>Approved and Ready!</div>;
+        enableCollateral = null;
+        // <div>Approved and Ready!</div>;
       } else {
         enableCollateral = (
           <ButtonFilled
@@ -214,18 +215,34 @@ export default function Cream() {
 
     return (
       <Buttons>
-        <IconButton
-          iconType="arrowUpAlt"
-          onClick={() => supplyRowClickHandler(rowData)}
-        >
-          Supply
-        </IconButton>
-        <IconButton
-          iconType="arrowDownAlt"
-          onClick={() => borrowRowClickHandler(rowData)}
-        >
-          Borrow
-        </IconButton>
+        {crTokenAllowedToSpendToken ? (
+          <>
+            <IconButton
+              iconType="arrowUpAlt"
+              onClick={() => supplyRowClickHandler(rowData)}
+            >
+              Supply
+            </IconButton>
+            <IconButton
+              iconType="arrowDownAlt"
+              onClick={() => borrowRowClickHandler(rowData)}
+            >
+              Borrow
+            </IconButton>
+            <IconButton
+              iconType="arrowUpAlt"
+              onClick={() => borrowRowClickHandler(rowData)}
+            >
+              Repay
+            </IconButton>
+            <IconButton
+              iconType="arrowDownAlt"
+              onClick={() => borrowRowClickHandler(rowData)}
+            >
+              Withdraw
+            </IconButton>
+          </>
+        ) : null}
         {enableCollateral}
       </Buttons>
     );
