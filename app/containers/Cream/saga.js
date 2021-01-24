@@ -11,6 +11,7 @@ import {
   INITIALIZE_CREAM,
   CREAM_ENTER_MARKETS,
   CREAM_SUPPLY,
+  CREAM_BORROW,
 } from 'containers/Cream/constants';
 
 import { addContracts } from 'containers/DrizzleProvider/actions';
@@ -178,6 +179,17 @@ function* supply({ crTokenContract, amount }) {
   }
 }
 
+function* borrow({ crTokenContract, amount }) {
+  const account = yield select(selectAccount());
+  try {
+    yield call(crTokenContract.methods.borrow.cacheSend, amount, {
+      from: account,
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function* executeEnterMarkets({
   tokenContract,
   tokenContractAddress,
@@ -216,4 +228,5 @@ export default function* watchers() {
   yield takeLatest(INITIALIZE_CREAM, subscribeToCreamData);
   yield takeLatest(CREAM_ENTER_MARKETS, executeEnterMarkets);
   yield takeLatest(CREAM_SUPPLY, supply);
+  yield takeLatest(CREAM_BORROW, borrow);
 }

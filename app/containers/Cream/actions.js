@@ -13,6 +13,7 @@ import {
   CREAM_ENTER_MARKETS,
   INITIALIZE_CREAM,
   CREAM_SUPPLY,
+  CREAM_BORROW,
 } from './constants';
 
 export function initializeCream() {
@@ -39,6 +40,14 @@ export function creamEnterMarkets({
 export function creamSupply({ crTokenContract, amount }) {
   return {
     type: CREAM_SUPPLY,
+    crTokenContract,
+    amount,
+  };
+}
+
+export function creamBorrow({ crTokenContract, amount }) {
+  return {
+    type: CREAM_BORROW,
     crTokenContract,
     amount,
   };

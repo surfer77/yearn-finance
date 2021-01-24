@@ -6,7 +6,7 @@ import BigNumber from 'bignumber.js';
 import { useAccount } from 'containers/ConnectionProvider/hooks';
 import { useContract } from 'containers/DrizzleProvider/hooks';
 import { useDispatch } from 'react-redux';
-import { creamSupply } from 'containers/Cream/actions';
+import { creamSupply, creamBorrow } from 'containers/Cream/actions';
 const StyledButton = styled.button`
   width: 80px;
   height: 50px;
@@ -83,6 +83,16 @@ export default function CreamModal(props) {
     }
   };
 
+  const borrow = async () => {
+    try {
+      dispatch(
+        creamBorrow({ crTokenContract, amount: amountRef.current.value }),
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const withdraw = async () => {
     try {
       // NOTE - Is it redeem? Same function signature as mint tbf
@@ -134,6 +144,27 @@ export default function CreamModal(props) {
     </ColumnWrapper>
   );
 
+  const BorrowPage = () => (
+    <ColumnWrapper>
+      <InputArea>
+        <input
+          ref={amountRefNormalized}
+          max={balanceOfNormalized}
+          type="number"
+          onChange={(evt) => updateNormalizedAmount(evt.target.value)}
+        />
+        <MaxButton onClick={setMax}>max</MaxButton>
+      </InputArea>
+      <Button onClick={borrow}>Borrow</Button>
+      <Bottom>
+        <div>Wallet balance</div>
+        <div>
+          {balanceOfNormalized} {symbol}
+        </div>
+      </Bottom>
+    </ColumnWrapper>
+  );
+
   const WithdrawPage = () => (
     <ColumnWrapper>
       <InputArea>
@@ -162,6 +193,10 @@ export default function CreamModal(props) {
     {
       name: 'Supply',
       element: SupplyPage,
+    },
+    {
+      name: 'Borrow',
+      element: BorrowPage,
     },
     {
       name: 'Withdraw',
